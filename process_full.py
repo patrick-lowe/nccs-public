@@ -178,7 +178,7 @@ class ProcessFull(ProcessCOPC):
         RETURNS
         Series
         """
-        return full.index + '_' + full['TAXPER'] + '_990O'
+        return full.index.astype('str') + '_' + full['TAXPER'] + '_990O'
 
     def full_manual(self):
         """

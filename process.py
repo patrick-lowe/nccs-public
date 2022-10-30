@@ -7,9 +7,11 @@ import logging
 
 import dask
 import dask.dataframe as dd
-dask.set_options(get=dask.multiprocessing.get) #switch from default multithreading to multiprocessing
+# switch from default multithreading to multiprocessing
+dask.config.set(get=dask.multiprocessing.get)
 
 # Code by Jeff Levy (jlevy@urban.org), 2016-2017
+
 
 class Deduplicate():
     """
@@ -18,6 +20,7 @@ class Deduplicate():
     inherited in multiple places, but that is now redundant; it is only inherited and called by the Write
     class.
     """
+
     def deduplicate(self, source, form, dup_criteria):
         """
         Method for efficiently removing duplicate EINs based on criteria specified in functions found in
@@ -37,23 +40,23 @@ class Deduplicate():
         """
         main = self.main
 
-        #first discard any entries with FISYR that is more than two years behind the release year
+        # first discard any entries with FISYR that is more than two years behind the release year
         release_year = main.data.core_file_year
         df = source[form][source[form]['FISYR'] >= release_year-2]
 
-        #split the data into one dataframe of all duplicates:
+        # split the data into one dataframe of all duplicates:
         dups = df[
-                df.index.duplicated(keep=False)
-                ].copy(deep=True)
+            df.index.duplicated(keep=False)
+        ].copy(deep=True)
         dups['rnd'] = random.random(len(dups))
-        #and one dataframe of the unique eins
-        df   = df[
-                ~df.index.duplicated(keep=False)
-                ].copy(deep=True)
+        # and one dataframe of the unique eins
+        df = df[
+            ~df.index.duplicated(keep=False)
+        ].copy(deep=True)
 
         main.logger.info('Removing duplicate EINs from {}... '.format(form))
 
-        #this old method works but is super slow due to the apply
+        # this old method works but is super slow due to the apply
 
         # #add a column where the duplicate selection criteria are in order, in a tuple
         # dups['dup_criteria'] = dup_criteria(dups)
@@ -66,38 +69,47 @@ class Deduplicate():
         # singled.drop('dup_criteria', axis=1, inplace=True)
         # singled.drop('rnd', axis=1, inplace=True)
 
-        release_year = main.data.core_file_year #an int, e.g. 2005, when the primary FISYR should be 2005
+        # an int, e.g. 2005, when the primary FISYR should be 2005
+        release_year = main.data.core_file_year
         start_len = len(dups)
+        if start_len <= 0:
+            return df
         dups, conditions = dup_criteria(dups)
         for cond in conditions:
             if cond == 'FISYR' and form != 'PF':
-                #need to check FISYR for dups, to make sure we avoid the situation where, for example, the prior release was 2014 but the current release has both 2015 and
-                #2016 in it.  if we just take the newest FISYR in that case, then the 2015 data will never appear in any release.  but we can't just take the 2015 data over
-                #the 2016 data, because some firms may have had 2015 data in the prior release, and thus the 2016 data SHOULD be in this release.
+                # need to check FISYR for dups, to make sure we avoid the situation where, for example, the prior release was 2014 but the current release has both 2015 and
+                # 2016 in it.  if we just take the newest FISYR in that case, then the 2015 data will never appear in any release.  but we can't just take the 2015 data over
+                # the 2016 data, because some firms may have had 2015 data in the prior release, and thus the 2016 data SHOULD be in this release.
                 #
-                #excludes PF because prior year data is not merged into the PF file
-                dups['fisyr_max_minus'] = dups.groupby('EIN').apply(lambda g: ((g['FISYR'] == release_year) & (g['FISYRP'] == release_year-1)) | ((g['FISYR'] == release_year+1) & (g['FISYRP'].isnull()))).groupby('EIN').sum() == 2
+                # excludes PF because prior year data is not merged into the PF file
+                dups['fisyr_max_minus'] = dups.groupby('EIN').apply(lambda g: ((g['FISYR'] == release_year) & (
+                    g['FISYRP'] == release_year-1)) | ((g['FISYR'] == release_year+1) & (g['FISYRP'].isnull()))).groupby('EIN').sum() == 2
             else:
                 dups['fisyr_max_minus'] = False
 
-            #dup_maxes = (dups.reset_index().groupby('EIN')[cond].max() - dups.groupby('EIN')['fisyr_max_minus'].max()).to_frame() #will be -0 for all non-FISYR conditions, otherwise will subtract 1 if it meets the above condition for FISYR
+            # dup_maxes = (dups.reset_index().groupby('EIN')[cond].max() - dups.groupby('EIN')['fisyr_max_minus'].max()).to_frame() #will be -0 for all non-FISYR conditions, otherwise will subtract 1 if it meets the above condition for FISYR
 
             #dups = dups.merge(dup_maxes, left_index=True, right_index=True, how='left', suffixes=('', '_max'))
-            dups[cond+'_max'] = dups.groupby('EIN')[cond].max() - dups.groupby('EIN')['fisyr_max_minus'].max() #will be -0 for all non-FISYR conditions, otherwise will subtract 1 if it meets the above condition for FISYR
+            # will be -0 for all non-FISYR conditions, otherwise will subtract 1 if it meets the above condition for FISYR
+            dups[cond+'_max'] = dups.groupby('EIN')[cond].max() - \
+                dups.groupby('EIN')['fisyr_max_minus'].max()
             first_len = len(dups)
             dups = dups[dups[cond] == dups[cond+'_max']]
             after_len = len(dups)
-            main.logger.info('    {} EINs dropped based on {} from {}.'.format(first_len-after_len, cond, form))
+            main.logger.info('    {} EINs dropped based on {} from {}.'.format(
+                first_len-after_len, cond, form))
         dups.drop([c+'_max' for c in conditions], axis=1, inplace=True)
         dups.drop(['val', 'rnd', 'fisyr_max_minus'], axis=1, inplace=True)
 
-        #merge the single-fied duplicate observations back to the original data
-        df = pd.concat([df, dups])#singled])
+        # merge the single-fied duplicate observations back to the original data
+        df = pd.concat([df, dups])  # singled])
 
         assert(df.index.is_unique), 'Deduplication process did not result in unique EINs in {}'.format(form)
-        main.logger.info('{} complete, {} total observations dropped.'.format(form, start_len-len(dups)))
+        main.logger.info('{} complete, {} total observations dropped.'.format(
+            form, start_len-len(dups)))
 
         return df
+
 
 class Process(ProcessPF, ProcessEZ, ProcessFull, Deduplicate):
     """
@@ -106,6 +118,7 @@ class Process(ProcessPF, ProcessEZ, ProcessFull, Deduplicate):
     final CO-PC-PF level), while it inherits the methods used by only one or two of the forms from the
     ProcessPF, ProcessEZ and ProcessFull classes.
     """
+
     def __init__(self, main, parallelize=False):
         self.main = main
         self.parallelize = parallelize
@@ -145,7 +158,7 @@ class Process(ProcessPF, ProcessEZ, ProcessFull, Deduplicate):
         """
         main = self.main
 
-        #process columns common to all forms:
+        # process columns common to all forms:
         main.logger.info('Calculating new columns common to all dataframes.')
         for form in main.forms:
             df = main.data_dict[form]
@@ -164,19 +177,19 @@ class Process(ProcessPF, ProcessEZ, ProcessFull, Deduplicate):
             if self.parallelize:
                 df = dd.from_pandas(df, chunksize=self.chunksize)
                 df = self.all_level1(df)
-                df = df.rename(columns={'dask_result':'LEVEL1'})
+                df = df.rename(columns={'dask_result': 'LEVEL1'})
                 df = self.all_ntmaj10(df)
-                df = df.rename(columns={'dask_result':'NTMAJ10'})
+                df = df.rename(columns={'dask_result': 'NTMAJ10'})
                 df = self.all_majgrpb(df)
-                df = df.rename(columns={'dask_result':'MAJGRPB'})
+                df = df.rename(columns={'dask_result': 'MAJGRPB'})
                 df = self.all_level3(df)
-                df = df.rename(columns={'dask_result':'LEVEL3'})
+                df = df.rename(columns={'dask_result': 'LEVEL3'})
                 df = self.all_level2(df)
-                df = df.rename(columns={'dask_result':'LEVEL2'})
+                df = df.rename(columns={'dask_result': 'LEVEL2'})
                 df = self.all_ntmaj12(df)
-                df = df.rename(columns={'dask_result':'NTMAJ12'})
+                df = df.rename(columns={'dask_result': 'NTMAJ12'})
                 df = self.all_ntmaj5(df)
-                df = df.rename(columns={'dask_result':'NTMAJ5'})
+                df = df.rename(columns={'dask_result': 'NTMAJ5'})
                 df = df.compute()
             else:
                 df['LEVEL1'] = self.all_level1(df)
@@ -222,7 +235,8 @@ class Process(ProcessPF, ProcessEZ, ProcessFull, Deduplicate):
         RETURNS
         dask.core.DataFrame
         """
-        assert(isinstance(df, dd.core.DataFrame)), 'A non-Dask dataframe was sent to the parallel_apply method.'
+        assert(isinstance(df, dd.core.DataFrame)
+               ), 'A non-Dask dataframe was sent to the parallel_apply method.'
         # df = df.assign(dask_result=df.apply(lambda r: func(r), axis=1, meta=str))
         # df = df.assign(dask_result=df.map_partitions(func, columns=[c for c in ['SUBSECCD', 'FNDNCD', 'NTEEFINAL', 'LEVEL3', 'NTMAJ10'] if c in df.columns]))
         df = df.assign(dask_result=df.map_partitions(func, meta=str))
@@ -269,13 +283,14 @@ class Process(ProcessPF, ProcessEZ, ProcessFull, Deduplicate):
         """
         main = self.main
 
-        temp_df = df.reset_index() #pulls EIN out of the index
+        temp_df = df.reset_index()  # pulls EIN out of the index
 
-        #Joins the columns as strings.  Note, TAXPER is tax_prd in IRS original
+        # Joins the columns as strings.  Note, TAXPER is tax_prd in IRS original
+        temp_df['EIN'] = temp_df['EIN'].astype('str')
         new_col1 = temp_df['EIN'] + temp_df['TAXPER']
         new_col2 = temp_df['EIN'] + temp_df['FISYR'].astype(str)
 
-        #resets the indices back to EIN
+        # resets the indices back to EIN
         new_col1.index = df.index
         new_col2.index = df.index
 
@@ -291,7 +306,8 @@ class Process(ProcessPF, ProcessEZ, ProcessFull, Deduplicate):
         RETURNS
         Series
         """
-        return df['TAXPER'].str.slice(0,4).astype(int)
+        df['TAXPER'] = df['TAXPER'].astype('str')
+        return df['TAXPER'].str.slice(0, 4).astype(int)
 
     def all_accper(self, df):
         """
@@ -303,7 +319,7 @@ class Process(ProcessPF, ProcessEZ, ProcessFull, Deduplicate):
         RETURNS
         Series
         """
-        return df['TAXPER'].str.slice(4,6)
+        return df['TAXPER'].str.slice(4, 6)
 
     def all_nteecc(self, df):
         """
@@ -534,9 +550,9 @@ class Process(ProcessPF, ProcessEZ, ProcessFull, Deduplicate):
                 return 'S'
             elif sbcd == 3 and fndc == 17:
                 return 'S'
-            elif lvl3 is not np.NaN and lvl3 is not '' and lvl3[0] == 'Z':
+            elif lvl3 is not np.NaN and lvl3 != '' and lvl3[0] == 'Z':
                 return 'S'
-            elif ntf is not np.NaN and ntf is not '' and ntf[0] == 'Y':
+            elif ntf is not np.NaN and ntf != '' and ntf[0] == 'Y':
                 return 'M'
             else:
                 return 'O'
