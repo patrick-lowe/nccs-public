@@ -25,3 +25,8 @@ It produces the following files:
   - NCCS Core PC_full file 						      (if the 990 Full is used)
   
 For documentation of the build process, see our [readthedocs site](https://nccs-public.readthedocs.io/en/latest/index.html).  For the release data, see the [NCCS data archive](http://nccs-data.urban.org/data.php?ds=core).
+
+Reference Links
+https://nccs-data.urban.org/index.php
+https://nccs-data.urban.org/showDD.php?ds=core
+https://nccs-data.urban.org/data-dictionaries.php
