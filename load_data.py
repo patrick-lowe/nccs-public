@@ -164,7 +164,7 @@ class LoadData():
                 df = pd.read_parquet(file)
                 main.logger.info(f'finished loading {file}')
             elif extension == '.dat':
-                with open(file_path) as f:
+                with open(file) as f:
                     first_line = '\n'
                     while first_line == '\n' and first_line != '':
                         first_line = f.readline()
@@ -177,7 +177,7 @@ class LoadData():
                 else:
                     self.main.logger.info(
                         f'unable to determine delimiter from {first_line}')
-                df = pd.read_csv(file_path, sep=delim)
+                df = pd.read_csv(file, sep=delim)
             else:
                 main.logger.info(
                     f'{file} has unsupported file type extension {extension}')
