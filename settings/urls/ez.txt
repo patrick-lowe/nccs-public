@@ -1,5 +1,11 @@
 #NCCS_RELEASE_YR = IRS_URL
 
+2021 = https://www.irs.gov/pub/irs-soi/22eoextractez.xlsx
+2020 = https://www.irs.gov/pub/irs-soi/21eoextractez.xlsx
+2019 = https://www.irs.gov/pub/irs-soi/20eoextractez.xlsx
+2018 = https://www.irs.gov/pub/irs-soi/19eoextractez.xlsx
+2017 = https://www.irs.gov/pub/irs-soi/18eoextractez.xlsx
+2016 = https://www.irs.gov/pub/irs-soi/17eofinextractEZ.dat
 2015 = https://www.irs.gov/pub/irs-soi/16eofinextractez.dat
 2014 = https://www.irs.gov/pub/irs-soi/15eofinextractEZ.dat
 2013 = https://www.irs.gov/pub/irs-soi/14eofinextract990ez.zip

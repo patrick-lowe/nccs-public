@@ -73,6 +73,7 @@ class Validate(ValidateEZ, ValidateFull, ValidatePF):
             df.rename(columns={'level_0':self.validation_reason}, inplace=True)
             assert(df.index.dtype.type is np.object_), 'Third'
             df = df.reset_index().groupby('EIN').head(1)
+            df['EIN'] = df['EIN'].astype('str')
             assert(df['EIN'].dtype.type is np.object_), 'Fourth'
             df.drop('level_0', axis=1, inplace=True)
             df.set_index('EIN', inplace=True)

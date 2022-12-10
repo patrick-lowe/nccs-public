@@ -132,7 +132,7 @@ class ProcessEZ(ProcessCOPC):
         RETURNS
         Series
         """
-        return ez.index + '_' + ez['TAXPER'] + '_990EZ'
+        return ez.index.astype('str') + '_' + ez['TAXPER'] + '_990EZ'
 
     def ez_manual(self):
         """

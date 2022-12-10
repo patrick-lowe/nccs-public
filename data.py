@@ -76,6 +76,7 @@ class BMFShare():
                            'INCOME_CD':'INC_CODE', 'STATUS':'EOSTATUS'}, inplace=True)
         bmf['CONTACT'] = bmf['CONTACT'].str.lstrip('%').str.lstrip()
         bmf['FRCD'] = bmf['FILING_REQ_CD'] + bmf['PF_FILING_REQ_CD']
+        bmf['ACTIVITY'] = bmf['ACTIVITY'].astype('str')
         bmf['ACTIV1'] = bmf['ACTIVITY'].str.slice(0,3)
         bmf['ACTIV2'] = bmf['ACTIVITY'].str.slice(3,6)
         bmf['ACTIV3'] = bmf['ACTIVITY'].str.slice(6,9)
@@ -431,7 +432,8 @@ class Data(LoadData, BMFShare):
                 #turn some of the prior year columns into numbers
                 if form != 'PF':
                     for c in ['TOTREVP', 'EXPSP', 'ASS_BOY']:
-                        old[c] = pd.to_numeric(old[c], errors='coerce').fillna(0)
+                        if c in old:
+                            old[c] = pd.to_numeric(old[c], errors='coerce').fillna(0)
 
                 current_eins = main.write.data_dict[form].index
                 prev_yr_eins = old.index
@@ -551,7 +553,8 @@ class Data(LoadData, BMFShare):
             merged = df.merge(old, how='left', left_index=True, right_index=True)
             #finds the indexes where the past FISYR (FISYRP) is not equal to the current FISYR - 1
             #note that this includes any entry where FISYR or FISYRP are NaN
-            merged['bad_fisyr'] = ~merged.apply(lambda r: float(r.FISYR) == float(r.FISYRP) + 1, axis=1)
+            merged['bad_fisyr'] = merged['FISYR'].astype('float') == merged['FISYRP'].astype('float') + 1
+            # merged['bad_fisyr'] = ~merged.apply(lambda r: float(r.FISYR) == float(r.FISYRP) + 1, axis=1)
 
             #replaces the newly-merged values with NaN if FISYRP != FISYR - 1
             bad_ilocs = merged.reset_index()[merged.reset_index()['bad_fisyr']].index

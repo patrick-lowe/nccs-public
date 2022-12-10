@@ -120,7 +120,7 @@ class ProcessPF():
         RETURNS
         Series
         """
-        return pf.index + '_' + pf['TAXPER'] + '_990PF'
+        return pf.index.astype('str') + '_' + pf['TAXPER'] + '_990PF'
 
     def pf_manual(self):
         """
@@ -138,7 +138,7 @@ class ProcessPF():
 
         #per this note: http://nccsweb.urban.org/knowledgebase/detail.php?linkID=4207&category=40023&xrefID=7226&close=0
         try:
-            pf = pf.drop('954585397', axis=0)
+            pf = pf.drop('954585397', axis=0, errors='ignore')
         except ValueError:
             print('Tried to drop EIN 954585397 from PF, but it was not present.  Please review the pf_manual method.')
 
