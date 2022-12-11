@@ -1,10 +1,17 @@
 downloads/IRS/*.csv
 downloads/IRS/*.dat
 downloads/IRS/*.zip
+downloads/IRS/*.xls
+downloads/IRS/*.xlsx
+downloads/IRS/*.parquet
 downloads/IRS/data-download-epostcard.txt
 downloads/NCCS/*.csv
+downloads/NCCS/*.xlsx
+downloads/NCCS/*.parquet
+downloads/.ipynb_checkpoints/
 final output/*.*
 validation/failures/*.csv
 validation/fixes/*.csv
 *.pyc
 log_*.txt
+.vscode/
